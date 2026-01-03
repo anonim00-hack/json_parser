@@ -1,58 +1,124 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <variant>
+#include <vector>
+#include <cctype>
 
-// ===================== // For string // ===================== //
-std::string extractString(const std::string& s, int& i) {
+struct JsonMap;
+using JsonObject = std::map<std::string, JsonMap>;
+using JsonArray = std::vector<JsonMap>;
+
+struct JsonMap {
+    std::variant<std::string, JsonObject, JsonArray> data;
+
+    JsonMap() : data("") {}
+    JsonMap(std::string s) : data(s) {}
+    JsonMap(JsonObject o) : data(o) {}
+    JsonMap(JsonArray a) : data(a) {}
+
+    bool isString() { return data.index() == 0; }
+    bool isObject() { return data.index() == 1; }
+    bool isArray()  { return data.index() == 2; }
+
+    std::string asString() { return std::get<0>(data); }
+    JsonObject& asObject() { return std::get<1>(data); }
+    JsonArray&  asArray()  { return std::get<2>(data); }
+};
+
+JsonObject parseObject(const std::string& s, int& i);
+JsonArray parseArray(const std::string& s, int& i);
+
+void skipSpace(const std::string& s, int& i) {
+    while (i < s.size() && std::isspace(s[i])) i++;
+}
+
+std::string extractString(const std::string &s, int &i) {
     std::string result = "";
-    i++; 
+    i++;
     while (i < s.size() && s[i] != '"') {
         result += s[i];
         i++;
     }
-    i++; 
+    i++;
     return result;
 }
 
-// ===================== // For numbers // ===================== // 
-std::string extractNumber(const std::string& s, int& i) {
+std::string extractNumber(const std::string &s, int &i) {
     std::string result = "";
-    while (i < s.size() && std::isdigit(s[i])) {
+    while (i < s.size() && (std::isdigit(s[i]) || s[i] == '.')) {
         result += s[i];
         i++;
     }
     return result;
 }
 
-int main() {
-    // ===================== // Any Json. (I just couldn't find a json file so) // ===================== //
-    std::string rawJson = R"({"name": "IVAN", "age": 400, "type": "STUPID"})";
-    std::map<std::string, std::string> data;
+JsonMap parseValue(const std::string& s, int& i) {
+    skipSpace(s, i);
+    if (s[i] == '"') return extractString(s, i);
+    if (s[i] == '{') return parseObject(s, i);
+    if (s[i] == '[') return parseArray(s, i);
+    if (std::isdigit(s[i])) return extractNumber(s, i);
+    return s;
+}
 
-    for (int i = 0; i < rawJson.size(); i++) {
-        // Нашли ключ
-        if (rawJson[i] == '"') {
-            std::string key = extractString(rawJson, i);
-
-            // ===================== // while current will be : or continue // ===================== //
-            while (i < rawJson.size() && rawJson[i] != ':') i++;
-            i++; // проскочили ':'
-            
-            // ===================== // if current is space also continue // ===================== //
-            while (i < rawJson.size() && std::isspace(rawJson[i])) i++;
-
-            // ===================== // is current number or string // ===================== //
-            if (rawJson[i] == '"') {
-                data[key] = extractString(rawJson, i);
-            } else if (std::isdigit(rawJson[i])) {
-                data[key] = extractNumber(rawJson, i);
-            }
+JsonObject parseObject(const std::string& s, int& i) {
+    JsonObject obj;
+    i++;
+    while (i < s.size() && s[i] != '}') {
+        skipSpace(s, i);
+        if (s[i] == '"') {
+            std::string key = extractString(s, i);
+            while (i < s.size() && s[i] != ':') i++;
+            i++;
+            obj[key] = parseValue(s, i);
+        } else {
+            i++;
         }
+        skipSpace(s, i);
+        if (s[i] == ',') i++;
     }
-    // ===================== // show in console // ===================== //
-    std::cout << "Name: " << data["name"] << std::endl;
-    std::cout << "Age: " << data["age"] << std::endl;
-    std::cout << "Type: " << data["type"] << std::endl;
+    i++;
+    return obj;
+}
+
+JsonArray parseArray(const std::string& s, int& i) {
+    JsonArray arr;
+    i++;
+    while (i < s.size() && s[i] != ']') {
+        skipSpace(s, i);
+        if (s[i] != ']') {
+            arr.push_back(parseValue(s, i));
+        }
+        skipSpace(s, i);
+        if (s[i] == ',') i++;
+    }
+    i++;
+    return arr;
+}
+
+int main() {
+    std::string rawJson = R"({
+        "name": "IVAN", 
+        "age": 400, 
+        "type": "STUPID",
+        "friends": [
+            {"name": "Kolyz", "age": "12"},
+            {"name": "Bratan"}
+        ]
+    })";
+
+    int index = 0;
+    JsonObject data = parseObject(rawJson, index);
+
+    std::cout << "Name: " << data["name"].asString() << std::endl;
+    std::cout << "Age: " << data["age"].asString() << std::endl;
+
+    if (data["friends"].isArray()) {
+        JsonArray& friends = data["friends"].asArray();
+        std::cout << "friends: " << friends[0].asObject()["name"].asString() << std::endl;
+        std::cout << "friends: " << friends[1].asObject()["name"].asString() << std::endl;
+    }
 
     return 0;
 }
