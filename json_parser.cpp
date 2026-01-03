@@ -1,5 +1,7 @@
+#include <fstream>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <string>
 #include <variant>
 #include <vector>
@@ -97,16 +99,18 @@ JsonArray parseArray(const std::string& s, int& i) {
     return arr;
 }
 
+std::string FileRead(std::string file_name) {
+    std::ifstream file(file_name);
+    if (!file.is_open()) {
+        return "Error: Could not open file!";
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
 int main() {
-    std::string rawJson = R"({
-        "name": "IVAN", 
-        "age": 400, 
-        "type": "STUPID",
-        "friends": [
-            {"name": "Kolyz", "age": "12"},
-            {"name": "Bratan"}
-        ]
-    })";
+    std::string rawJson = FileRead("json_file.json");
 
     int index = 0;
     JsonObject data = parseObject(rawJson, index);

@@ -1,0 +1,14 @@
+{
+    "name": "IVAN",
+    "age": 400,
+    "type": "STUPID",
+    "friends": [
+        {
+            "name": "Kolyz",
+            "age": "12"
+        },
+        {
+            "name": "Bratan"
+        }
+    ]
+}
